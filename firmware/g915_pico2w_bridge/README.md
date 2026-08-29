@@ -12,8 +12,11 @@ USB boot-keyboard interface and forwards each eight-byte boot report unchanged.
 The bond and keyboard address are stored in Pico flash. Later boots reconnect
 automatically when the keyboard is switched to Bluetooth.
 
-The onboard LED is off while disconnected and solid while ready. USB is
+The onboard LED blinks while disconnected and stays solid while ready. USB is
 HID-only. Optional diagnostics are on UART0, GP0/TX and GP1/RX, at 115200 baud.
+The bridge requests a 7.5 ms Bluetooth connection interval with zero peripheral
+latency. UART diagnostics report the initial interval and any later
+connection-parameter update requested by the keyboard.
 
 ## Build
 

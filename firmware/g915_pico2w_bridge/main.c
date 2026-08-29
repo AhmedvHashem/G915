@@ -12,6 +12,8 @@
 
 int btstack_main(int argc, const char *argv[]);
 
+#define STATUS_LED_BLINK_INTERVAL_MS 500
+
 typedef struct {
     uint8_t bytes[8];
 } keyboard_report_t;
@@ -51,6 +53,11 @@ void bridge_keyboard_disconnected(void) {
 
 static void service_status_led(void) {
     bool wanted = bluetooth_ready;
+    if (!wanted) {
+        uint64_t elapsed_ms = to_ms_since_boot(get_absolute_time());
+        wanted = ((elapsed_ms / STATUS_LED_BLINK_INTERVAL_MS) & 1u) != 0;
+    }
+
     if (wanted == led_state) return;
     led_state = wanted;
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, wanted);

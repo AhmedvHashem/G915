@@ -59,6 +59,14 @@
 // TAG to store remote device address and type in TLV
 #define TLV_TAG_HOGD ((((uint32_t) 'H') << 24 ) | (((uint32_t) 'O') << 16) | (((uint32_t) 'G') << 8) | 'D')
 
+// Use the shortest baseline BLE connection interval. Interval values are in
+// 1.25 ms units; scan values are in 0.625 ms units.
+#define BLE_CONNECT_SCAN_INTERVAL 48
+#define BLE_CONNECT_SCAN_WINDOW   48
+#define BLE_CONNECTION_INTERVAL   6
+#define BLE_CONNECTION_LATENCY    0
+#define BLE_SUPERVISION_TIMEOUT   0x0048
+
 // prototypes
 static void hog_host_request_to_send(void);
 static void hog_host_request_to_write_without_response(void);
@@ -470,6 +478,11 @@ static void handle_gatt_client_event(uint8_t packet_type, uint16_t channel, uint
     }
 }
 
+static void print_connection_parameters(const char *event_name, uint16_t interval, uint16_t latency) {
+    printf("%s: %u.%02u ms interval, latency %u\n", event_name,
+           interval * 125 / 100, 25 * (interval & 3), latency);
+}
+
 /* LISTING_START(packetHandler): Packet Handler */
 static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
     /* LISTING_PAUSE */
@@ -520,9 +533,25 @@ static void packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *pack
                     if (app_state != W4_CONNECTED) return;
                     btstack_run_loop_remove_timer(&connection_timer);
                     connection_handle = gap_subevent_le_connection_complete_get_connection_handle(packet);
+                    print_connection_parameters(
+                        "BLE connection established",
+                        gap_subevent_le_connection_complete_get_conn_interval(packet),
+                        gap_subevent_le_connection_complete_get_conn_latency(packet));
                     // request security
                     app_state = W4_ENCRYPTED;
                     sm_request_pairing(connection_handle);
+                    break;
+                case HCI_EVENT_LE_META:
+                    if (hci_event_le_meta_get_subevent_code(packet) != HCI_SUBEVENT_LE_CONNECTION_UPDATE_COMPLETE) break;
+                    if (hci_subevent_le_connection_update_complete_get_status(packet) != ERROR_CODE_SUCCESS) {
+                        printf("BLE connection parameter update failed: 0x%02x\n",
+                               hci_subevent_le_connection_update_complete_get_status(packet));
+                        break;
+                    }
+                    print_connection_parameters(
+                        "BLE connection updated",
+                        hci_subevent_le_connection_update_complete_get_conn_interval(packet),
+                        hci_subevent_le_connection_update_complete_get_conn_latency(packet));
                     break;
                 default:
                     break;
@@ -692,6 +721,16 @@ int btstack_main(int argc, const char * argv[]){
 
     //
     gatt_client_init();
+
+    // Request a 7.5 ms interval with no skipped connection events. The
+    // keyboard may request different parameters later; updates are logged.
+    gap_set_connection_parameters(BLE_CONNECT_SCAN_INTERVAL,
+                                  BLE_CONNECT_SCAN_WINDOW,
+                                  BLE_CONNECTION_INTERVAL,
+                                  BLE_CONNECTION_INTERVAL,
+                                  BLE_CONNECTION_LATENCY,
+                                  BLE_SUPERVISION_TIMEOUT,
+                                  0, 0);
 
     // register for events from HCI
     hci_event_callback_registration.callback = &packet_handler;
