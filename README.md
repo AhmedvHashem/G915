@@ -2,7 +2,8 @@
 
 Firmware that turns a Raspberry Pi Pico 2 W into a Bluetooth-to-USB bridge for
 the Logitech G915 keyboard. The Pico connects to the keyboard over Bluetooth
-Low Energy HID and exposes it to the host computer as a USB boot keyboard.
+Low Energy HID Report Protocol and exposes its standard keyboard fields to the
+host computer as a USB boot keyboard.
 
 ## Quick start
 
@@ -11,7 +12,8 @@ Low Energy HID and exposes it to the host computer as a USB boot keyboard.
 2. Hold the G915 Bluetooth button for three seconds until it flashes rapidly.
 3. Type `123456` on the keyboard and press Enter to complete pairing.
 
-The Pico remembers the keyboard and reconnects automatically. Its LED blinks
+The Pico remembers the keyboard and reconnects automatically. Unsupported and
+media keys are ignored without interrupting normal typing. Its LED blinks
 while disconnected and stays on when the bridge is ready.
 
 ## Build

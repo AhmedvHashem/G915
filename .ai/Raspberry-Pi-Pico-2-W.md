@@ -4,9 +4,11 @@
 
 **Primary supported device. Implemented and validated on real hardware.**
 
-The Logitech G915 pairs with the Pico 2 W over Bluetooth LE HID. The Pico
-forwards the keyboard's standard eight-byte boot report through its native USB
-controller, where the PC or PS5 sees a simple USB boot keyboard.
+The Logitech G915 pairs with the Pico 2 W over Bluetooth LE HID. The Pico uses
+the keyboard's full HID Report Protocol and report map, then forwards only
+standard keyboard usages through its native USB controller. The PC or PS5
+continues to see a simple USB boot keyboard; unsupported, consumer/media, and
+Logitech vendor reports are consumed but not forwarded.
 
 Working firmware and source:
 
@@ -23,7 +25,11 @@ Other supported hardware plans:
 ```text
 G915 ──Bluetooth LE HOGP──▶ CYW43439 / BTstack
                                       │
-                                      │ 8-byte boot-keyboard report
+                                      │ full HID reports + report map
+                                      ▼
+                             keyboard report parser
+                                      │
+                                      │ 8-byte USB boot state
                                       ▼
                               RP2350 report queue
                                       │
@@ -73,7 +79,7 @@ The source is a standalone Pico SDK C project.
 | File | Responsibility |
 |---|---|
 | `CMakeLists.txt` | Pico 2 W, BTstack, CYW43, TinyUSB, and UART build configuration |
-| `hog_boot_host.c` | BLE scanning, pairing, bonding, reconnect, HOGP boot-keyboard notifications |
+| `hog_report_host.c` | BLE scanning, pairing, bonding, reconnect, full HOGP report parsing |
 | `main.c` | report queue, USB forwarding, disconnect release, and status LED |
 | `bridge.h` | boundary between Bluetooth and USB translation units |
 | `usb_descriptors.c` | single-interface boot-keyboard USB descriptors and identity |
@@ -81,10 +87,12 @@ The source is a standalone Pico SDK C project.
 | `btstack_config*.h` | BTstack memory and feature configuration |
 
 BTstack and TinyUSB are kept in separate translation units because both stacks
-define overlapping HID names. Bluetooth callbacks enqueue complete keyboard
-state snapshots. The USB loop drains that queue only while the HID endpoint is
-ready. If the queue fills, the oldest state is discarded so the newest key
-state, especially a release, is retained.
+define overlapping HID names. The BLE host subscribes to all input reports and
+uses the G915 report map to extract Keyboard/Keypad usages. Consumer and vendor
+reports are ignored without changing the last keyboard state. Parsed keyboard
+snapshots enter the USB queue, which retains each report until the HID endpoint
+accepts it. If the queue fills, the oldest queued state is discarded so the
+newest key state, especially a release, is retained.
 
 ## Build
 
@@ -155,8 +163,9 @@ Perform tests in this order:
 
 ## Current limitations
 
-- Version 1 forwards the standard boot-keyboard report only.
-- Boot protocol provides six ordinary key slots plus modifier bits.
+- Version 2 parses the G915's full BLE HID report map but exposes only the
+  standard keyboard fields over USB.
+- The USB boot protocol provides six ordinary key slots plus modifier bits.
 - Consumer/media reports and Logitech G-key vendor reports are not forwarded.
 - Host lock-LED output is accepted by USB but is not yet forwarded to the G915.
 - Pairing uses a fixed passkey for a predictable headless setup.
@@ -175,6 +184,6 @@ Perform tests in this order:
 
 ## References
 
-- Raspberry Pi Pico SDK BTstack `hog_boot_host_demo`
+- Raspberry Pi Pico SDK BTstack `hog_host_demo`
 - TinyUSB HID device keyboard examples
 - `../firmware/g915_pico2w_bridge/README.md`

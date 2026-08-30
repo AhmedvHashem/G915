@@ -21,6 +21,25 @@ typedef struct {
 static queue_t report_queue;
 static volatile bool bluetooth_ready;
 static bool led_state;
+static keyboard_report_t pending_report;
+static bool pending_report_valid;
+
+// The USB descriptor advertises keyboard usages 0x00 through 0x65. Some G915
+// non-keyboard controls show up in the boot characteristic as error or
+// out-of-range usages. Forwarding those values can leave a USB host treating
+// the keyboard as being in an error state until the Bluetooth link is reset.
+static bool sanitize_boot_report(const uint8_t *source, size_t length,
+                                 uint8_t destination[8]) {
+    if (length != 8) return false;
+
+    destination[0] = source[0];
+    destination[1] = 0;
+    for (size_t i = 2; i < 8; ++i) {
+        uint8_t usage = source[i];
+        destination[i] = (usage >= 0x04 && usage <= 0x65) ? usage : 0;
+    }
+    return true;
+}
 
 static void queue_latest_report(const uint8_t bytes[8]) {
     keyboard_report_t report;
@@ -37,8 +56,9 @@ static void queue_latest_report(const uint8_t bytes[8]) {
 }
 
 void bridge_keyboard_report(const uint8_t *report, size_t length) {
-    if (length < 8) return;
-    queue_latest_report(report);
+    uint8_t sanitized[8] = {0};
+    sanitize_boot_report(report, length, sanitized);
+    queue_latest_report(sanitized);
 }
 
 void bridge_keyboard_connected(void) {
@@ -64,16 +84,28 @@ static void service_status_led(void) {
 }
 
 static void service_usb_keyboard(void) {
-    if (!tud_mounted() || !tud_hid_ready()) return;
+    if (!tud_mounted()) return;
 
-    keyboard_report_t report;
-    if (!queue_try_remove(&report_queue, &report)) return;
+    if (!pending_report_valid) {
+        if (!queue_try_remove(&report_queue, &pending_report)) return;
+        pending_report_valid = true;
+    }
 
     static const uint8_t released[8] = {0};
-    if (tud_suspended() && memcmp(report.bytes, released, 8) != 0) {
-        tud_remote_wakeup();
+    if (tud_suspended()) {
+        if (memcmp(pending_report.bytes, released, 8) != 0) {
+            tud_remote_wakeup();
+        }
+        return;
     }
-    tud_hid_report(0, report.bytes, sizeof(report.bytes));
+
+    if (!tud_hid_ready()) return;
+
+    // Keep the state pending if the endpoint becomes busy between the ready
+    // check and the send. In particular, a release report must never be lost.
+    if (tud_hid_report(0, pending_report.bytes, sizeof(pending_report.bytes))) {
+        pending_report_valid = false;
+    }
 }
 
 int main(void) {

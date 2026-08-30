@@ -190,10 +190,11 @@ static void handle_boot_keyboard_event(uint8_t packet_type, uint16_t channel, ui
     if (hci_event_packet_get_type(packet) != GATT_EVENT_NOTIFICATION) return;
     const uint8_t * data = gatt_event_notification_get_value(packet);
     uint16_t data_len = gatt_event_notification_get_value_length(packet);
-    if (data_len < 8) return;
 
-    // HOGP boot reports already use the USB boot-keyboard wire format.
-    bridge_keyboard_report(data, 8);
+    // Let the bridge turn malformed or unsupported input into a safe release
+    // report instead of leaving the USB host in its previous key state.
+    bridge_keyboard_report(data, data_len);
+    if (data_len != 8) return;
 
     uint8_t new_keys[NUM_KEYS];
     memset(new_keys, 0, sizeof(new_keys));
@@ -257,6 +258,8 @@ static void handle_boot_mouse_event(uint8_t packet_type, uint16_t channel, uint8
 
     if (hci_event_packet_get_type(packet) != GATT_EVENT_NOTIFICATION) return;
     const uint8_t * data = gatt_event_notification_get_value(packet);
+    uint16_t data_len = gatt_event_notification_get_value_length(packet);
+    if (data_len < 4) return;
     uint8_t buttons =          data[0];
     int8_t dx       = (int8_t) data[1];
     int8_t dy       = (int8_t) data[2];

@@ -10,7 +10,7 @@ pico_sdk_init()
 
 add_executable(g915_pico2w_bridge
     main.c
-    hog_boot_host.c
+    hog_report_host.c
     usb_descriptors.c
 )
 
@@ -32,6 +32,5 @@ pico_enable_stdio_usb(g915_pico2w_bridge 0)
 pico_enable_stdio_uart(g915_pico2w_bridge 1)
 
 pico_set_program_name(g915_pico2w_bridge "G915 Bridge")
-pico_set_program_version(g915_pico2w_bridge "0.1.0")
+pico_set_program_version(g915_pico2w_bridge "0.2.0")
 pico_add_extra_outputs(g915_pico2w_bridge)
-

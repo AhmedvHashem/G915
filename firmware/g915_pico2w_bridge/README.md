@@ -1,7 +1,10 @@
 # G915 Bridge for Raspberry Pi Pico 2 W
 
-The G915 connects to the Pico 2 W over Bluetooth LE HID. The Pico exposes one
-USB boot-keyboard interface and forwards each eight-byte boot report unchanged.
+The G915 connects to the Pico 2 W over Bluetooth LE HID Report Protocol. The
+Pico subscribes to every input report, parses the G915 report map, and exposes
+the standard keyboard fields through one USB boot-keyboard interface.
+Consumer/media and Logitech vendor reports are consumed but not forwarded, so
+they cannot interrupt ordinary keyboard input.
 
 ## First pairing
 
