@@ -78,7 +78,7 @@ static const uint8_t configuration_descriptor[] = {
                        EPNUM_CDC_OUT, EPNUM_CDC_IN, 64),
 #endif
     TUD_HID_DESCRIPTOR(ITF_NUM_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD,
-                       sizeof(hid_report_descriptor), EPNUM_KEYBOARD, 8, 2),
+                       sizeof(hid_report_descriptor), EPNUM_KEYBOARD, 8, 1),
 };
 
 const uint8_t *tud_descriptor_configuration_cb(uint8_t index) {

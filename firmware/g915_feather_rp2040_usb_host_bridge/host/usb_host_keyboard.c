@@ -46,6 +46,33 @@ static bool last_host_state_valid;
 static usb_host_keyboard_status_t host_status = USB_HOST_KEYBOARD_WAITING;
 static usb_host_keyboard_diagnostics_t diagnostics;
 
+// Everything above is written only by core 0 from the source-event queue.
+// The counters below are written only by core 1, on the PIO USB host loop and
+// its callbacks, and read by core 0 in usb_host_keyboard_get_diagnostics().
+// Aligned word accesses cannot tear, and a lost update would only skew a
+// statistic, so these stay off the event queue and out of the report path.
+static volatile bool host_device_configured;
+static volatile uint32_t min_report_frame_gap;
+static volatile uint32_t report_arm_failure_count;
+static uint32_t last_report_frame;
+static bool last_report_frame_valid;
+
+static void observe_report_frame(void) {
+    const uint32_t frame = pio_usb_host_get_frame_number();
+    if (last_report_frame_valid) {
+        // The receiver NAKs frames with no key change, so consecutive reports
+        // are normally far apart. The smallest gap ever seen is the polling
+        // interval of the endpoint, which TinyUSB does not expose directly.
+        const uint32_t gap = frame - last_report_frame;
+        if (gap > 0 &&
+            (min_report_frame_gap == 0 || gap < min_report_frame_gap)) {
+            min_report_frame_gap = gap;
+        }
+    }
+    last_report_frame = frame;
+    last_report_frame_valid = true;
+}
+
 static void queue_event(const source_event_t *event) {
     if (queue_try_add(&source_events, event)) return;
 
@@ -106,6 +133,11 @@ void usb_host_keyboard_init(void) {
     diagnostics = (usb_host_keyboard_diagnostics_t){
         .status = USB_HOST_KEYBOARD_WAITING,
     };
+    host_device_configured = false;
+    min_report_frame_gap = 0;
+    report_arm_failure_count = 0;
+    last_report_frame = 0;
+    last_report_frame_valid = false;
 }
 
 void usb_host_keyboard_core1(void) {
@@ -130,8 +162,11 @@ void usb_host_keyboard_core1(void) {
         // The G915 receiver is a multi-interface full-speed device. Leaving a
         // short interval between host-task passes avoids back-to-back control
         // transactions that make this receiver restart enumeration, while
-        // remaining far below its 1 ms interrupt polling interval.
-        sleep_us(100);
+        // remaining far below its 1 ms interrupt polling interval. Once every
+        // interface is configured the only remaining traffic is that periodic
+        // poll, so a shorter gap reaches each completed report sooner and
+        // narrows the window in which a re-arm can miss the next frame.
+        sleep_us(host_device_configured ? 10u : 100u);
         tight_loop_contents();
     }
 }
@@ -188,6 +223,8 @@ usb_host_keyboard_status_t usb_host_keyboard_status(void) {
 
 void usb_host_keyboard_get_diagnostics(usb_host_keyboard_diagnostics_t *result) {
     *result = diagnostics;
+    result->min_report_frame_gap = min_report_frame_gap;
+    result->report_arm_failure_count = report_arm_failure_count;
 }
 
 void tuh_event_hook_cb(uint8_t rhport, uint32_t event_id, bool in_isr) {
@@ -195,8 +232,12 @@ void tuh_event_hook_cb(uint8_t rhport, uint32_t event_id, bool in_isr) {
     if (rhport != APP_USB_HOST_RHPORT) return;
 
     if (event_id == HCD_EVENT_DEVICE_ATTACH) {
+        // A fresh enumeration is about to start, so pace core 1 conservatively
+        // again until the device reports itself fully configured.
+        host_device_configured = false;
         queue_status(SOURCE_EVENT_ATTACHED);
     } else if (event_id == HCD_EVENT_DEVICE_REMOVE) {
+        host_device_configured = false;
         // The HID unmount callback performs the keyboard-state reset when a
         // keyboard had reached READY. This event also covers removal during
         // enumeration, before any class callback exists.
@@ -207,6 +248,7 @@ void tuh_event_hook_cb(uint8_t rhport, uint32_t event_id, bool in_isr) {
 }
 
 void tuh_mount_cb(uint8_t dev_addr) {
+    host_device_configured = true;
     uint16_t vid = 0;
     uint16_t pid = 0;
     (void)tuh_vid_pid_get(dev_addr, &vid, &pid);
@@ -221,6 +263,7 @@ void tuh_mount_cb(uint8_t dev_addr) {
 
 void tuh_umount_cb(uint8_t dev_addr) {
     (void)dev_addr;
+    host_device_configured = false;
     if (keyboard_dev_addr == 0) queue_status(SOURCE_EVENT_WAITING);
 }
 
@@ -246,14 +289,18 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance,
 
     keyboard_dev_addr = dev_addr;
     keyboard_instance = instance;
+    last_report_frame_valid = false;
     reset_source(SOURCE_EVENT_READY);
+
+    // Arm the endpoint before logging. stdio over UART blocks until the FIFO
+    // drains, which would otherwise stall core 1 for milliseconds inside the
+    // enumeration window this receiver is most sensitive to.
+    if (!tuh_hid_receive_report(dev_addr, instance)) {
+        ++report_arm_failure_count;
+    }
 
     printf("USB keyboard mounted: %04x:%04x addr %u interface %u\n",
            vid, pid, dev_addr, instance);
-
-    if (!tuh_hid_receive_report(dev_addr, instance)) {
-        printf("Could not queue first keyboard report\n");
-    }
 }
 
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
@@ -261,6 +308,7 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
 
     keyboard_dev_addr = 0;
     keyboard_instance = 0;
+    last_report_frame_valid = false;
     reset_source(SOURCE_EVENT_WAITING);
     printf("USB keyboard removed\n");
 }
@@ -268,6 +316,8 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
                                 const uint8_t *report, uint16_t length) {
     if (dev_addr != keyboard_dev_addr || instance != keyboard_instance) return;
+
+    observe_report_frame();
 
     keyboard_state_t state;
     if (decode_boot_report(report, length, &state) &&
@@ -283,7 +333,10 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
         queue_event(&event);
     }
 
+    // No logging on this path: stdio over UART blocks for milliseconds, which
+    // would stall tuh_task() for several frames exactly when the endpoint has
+    // failed to re-arm. The counter is reported through the diagnostics build.
     if (!tuh_hid_receive_report(dev_addr, instance)) {
-        printf("Could not requeue keyboard report\n");
+        ++report_arm_failure_count;
     }
 }

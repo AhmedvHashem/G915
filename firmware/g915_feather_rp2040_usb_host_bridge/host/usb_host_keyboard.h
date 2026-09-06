@@ -17,6 +17,12 @@ typedef struct {
     uint16_t pid;
     uint8_t hid_interface_count;
     uint8_t keyboard_interface_count;
+    // Smallest frame gap ever observed between two keyboard reports, which is
+    // the interrupt polling interval of the receiver in milliseconds. Zero
+    // until at least two reports have arrived.
+    uint32_t min_report_frame_gap;
+    // Reports that could not be re-armed on the receiver IN endpoint.
+    uint32_t report_arm_failure_count;
 } usb_host_keyboard_diagnostics_t;
 
 void usb_host_keyboard_init(void);

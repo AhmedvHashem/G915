@@ -70,12 +70,15 @@ static void service_usb_diagnostics(void) {
 
     usb_host_keyboard_diagnostics_t diagnostics;
     usb_host_keyboard_get_diagnostics(&diagnostics);
-    char line[128];
+    char line[192];
     const int length = snprintf(
         line, sizeof(line),
-        "host_stage=%u vid=%04x pid=%04x hid_interfaces=%u keyboards=%u\r\n",
+        "host_stage=%u vid=%04x pid=%04x hid_interfaces=%u keyboards=%u "
+        "poll_frames=%u arm_failures=%u\r\n",
         (unsigned)diagnostics.status, diagnostics.vid, diagnostics.pid,
-        diagnostics.hid_interface_count, diagnostics.keyboard_interface_count);
+        diagnostics.hid_interface_count, diagnostics.keyboard_interface_count,
+        (unsigned)diagnostics.min_report_frame_gap,
+        (unsigned)diagnostics.report_arm_failure_count);
     if (length > 0) {
         tud_cdc_write(line, (uint32_t)length);
         tud_cdc_write_flush();

@@ -48,7 +48,7 @@ uint8_t const configuration_descriptor[] = {
     TUD_CONFIG_DESCRIPTOR(1, ITF_NUM_TOTAL, 0, CONFIG_TOTAL_LEN,
                           TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100),
     TUD_HID_DESCRIPTOR(ITF_NUM_KEYBOARD, 0, HID_ITF_PROTOCOL_KEYBOARD,
-                       sizeof(hid_report_descriptor), EPNUM_KEYBOARD, 8, 2),
+                       sizeof(hid_report_descriptor), EPNUM_KEYBOARD, 8, 1),
 };
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
