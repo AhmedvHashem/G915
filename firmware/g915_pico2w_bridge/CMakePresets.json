@@ -1,0 +1,36 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "pico2w-release",
+      "displayName": "Pico 2 W Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "PICO_BOARD": "pico2_w",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "pico2w-debug",
+      "displayName": "Pico 2 W Debug",
+      "inherits": "pico2w-release",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "pico2w-release",
+      "configurePreset": "pico2w-release"
+    },
+    {
+      "name": "pico2w-debug",
+      "configurePreset": "pico2w-debug"
+    }
+  ]
+}
+
