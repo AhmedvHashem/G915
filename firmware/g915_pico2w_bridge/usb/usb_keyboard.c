@@ -8,6 +8,10 @@
 #include "pico/stdlib.h"
 #include "tusb.h"
 
+#ifndef APP_USB_STARTUP_MODIFIER_RECOVERY_MASK
+#define APP_USB_STARTUP_MODIFIER_RECOVERY_MASK 0u
+#endif
+
 static report_pipe_t *keyboard_pipe;
 static report_pipe_item_t pending_item;
 static report_pipe_item_t in_flight_item;
@@ -130,6 +134,10 @@ void tud_mount_cb(void) {
     if (keyboard_pipe != NULL) {
         (void)report_pipe_take_wake_request(keyboard_pipe);
         report_pipe_set_active(keyboard_pipe, true);
+#if APP_USB_STARTUP_MODIFIER_RECOVERY_MASK
+        report_pipe_request_modifier_recovery(
+            keyboard_pipe, APP_USB_STARTUP_MODIFIER_RECOVERY_MASK);
+#endif
     }
 }
 

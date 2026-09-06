@@ -208,6 +208,31 @@ static void test_wake_survives_suspend_until_current_ack(void) {
     assert(report_pipe_wake_request_pending(&pipe));
 }
 
+static void test_modifier_recovery_pulses_then_restores_latest(void) {
+    report_pipe_t pipe;
+    report_pipe_init(&pipe);
+
+    keyboard_state_t latest = state_with_key(0x04);
+    latest.modifiers = 0x02;
+    report_pipe_publish(&pipe, &latest, 1);
+    report_pipe_set_active(&pipe, true);
+    report_pipe_request_modifier_recovery(&pipe, 0x22);
+
+    report_pipe_item_t item;
+    assert(report_pipe_pop(&pipe, &item));
+    keyboard_state_t recovery;
+    keyboard_state_clear(&recovery);
+    recovery.modifiers = 0x22;
+    assert(keyboard_state_equal(&item.state, &recovery));
+
+    assert(report_pipe_pop(&pipe, &item));
+    assert(keyboard_state_empty(&item.state));
+
+    assert(report_pipe_pop(&pipe, &item));
+    assert(keyboard_state_equal(&item.state, &latest));
+    assert(!report_pipe_pop(&pipe, &item));
+}
+
 int main(void) {
     test_keyboard_boot_encoding();
     test_rollover_and_source_errors();
@@ -218,6 +243,7 @@ int main(void) {
     test_overflow_resynchronizes();
     test_wake_latch();
     test_wake_survives_suspend_until_current_ack();
+    test_modifier_recovery_pulses_then_restores_latest();
     puts("core tests passed");
     return 0;
 }

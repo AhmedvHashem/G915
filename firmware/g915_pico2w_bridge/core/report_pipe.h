@@ -34,6 +34,8 @@ void report_pipe_publish(report_pipe_t *pipe, const keyboard_state_t *state,
                          uint32_t epoch);
 void report_pipe_source_reset(report_pipe_t *pipe, uint32_t epoch);
 void report_pipe_request_resync(report_pipe_t *pipe);
+void report_pipe_request_modifier_recovery(report_pipe_t *pipe,
+                                           uint8_t modifier_mask);
 bool report_pipe_pop(report_pipe_t *pipe, report_pipe_item_t *item);
 bool report_pipe_acknowledge(report_pipe_t *pipe,
                              const report_pipe_item_t *item);

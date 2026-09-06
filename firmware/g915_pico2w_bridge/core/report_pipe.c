@@ -93,6 +93,27 @@ void report_pipe_request_resync(report_pipe_t *pipe) {
     if (pipe->active) enqueue_resync(pipe);
 }
 
+void report_pipe_request_modifier_recovery(report_pipe_t *pipe,
+                                           uint8_t modifier_mask) {
+    if (!pipe->active || modifier_mask == 0) return;
+
+    keyboard_state_t pressed;
+    keyboard_state_t released;
+    keyboard_state_clear(&pressed);
+    keyboard_state_clear(&released);
+    pressed.modifiers = modifier_mask;
+
+    // Force the destination OS to observe a real modifier transition. This
+    // clears a key-down state retained when the previous USB session vanished
+    // during a reset or firmware update.
+    clear_items(pipe);
+    append_item(pipe, &pressed);
+    append_item(pipe, &released);
+    if (pipe->latest_valid && !keyboard_state_empty(&pipe->latest)) {
+        append_item(pipe, &pipe->latest);
+    }
+}
+
 bool report_pipe_pop(report_pipe_t *pipe, report_pipe_item_t *item) {
     if (pipe->count == 0) return false;
     *item = pipe->items[pipe->read_index];
