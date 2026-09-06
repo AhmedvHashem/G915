@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>G915 → PS5 Bridge · Repository Map</title>
+  <style>
+    :root {
+      --ink: #182126;
+      --muted: #607078;
+      --paper: #f6f4ee;
+      --panel: #fffdf8;
+      --line: #d8d3c8;
+      --blue: #126e82;
+      --blue-soft: #dceff1;
+      --orange: #d86632;
+      --orange-soft: #f9e6dc;
+      --green: #39745a;
+      --green-soft: #e1eee5;
+      --purple: #68558c;
+      --purple-soft: #ebe6f4;
+      --shadow: 0 14px 40px rgba(39, 48, 48, .08);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 4%, rgba(18,110,130,.11), transparent 28rem),
+        radial-gradient(circle at 92% 9%, rgba(216,102,50,.10), transparent 27rem),
+        var(--paper);
+      font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    a { color: inherit; }
+    .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+    header { padding: 58px 0 28px; }
+    .eyebrow { letter-spacing: .14em; text-transform: uppercase; font-weight: 800; color: var(--blue); font-size: 12px; }
+    h1 { margin: 8px 0 12px; max-width: 850px; font-size: clamp(36px, 7vw, 76px); line-height: .98; letter-spacing: -.055em; }
+    h1 span { color: var(--orange); }
+    .lede { max-width: 800px; margin: 0; color: var(--muted); font-size: clamp(17px, 2vw, 21px); }
+    .facts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .fact { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,253,248,.7); font-size: 13px; }
+    nav { position: sticky; top: 0; z-index: 10; border-block: 1px solid rgba(216,211,200,.9); background: rgba(246,244,238,.88); backdrop-filter: blur(14px); }
+    nav .wrap { display: flex; gap: 4px; overflow-x: auto; padding-block: 8px; }
+    nav a { flex: 0 0 auto; padding: 7px 10px; border-radius: 9px; text-decoration: none; color: var(--muted); font-size: 13px; font-weight: 700; }
+    nav a:hover { background: var(--panel); color: var(--ink); }
+    main { padding: 36px 0 80px; }
+    section { margin: 0 0 52px; scroll-margin-top: 64px; }
+    h2 { margin: 0 0 8px; font-size: clamp(27px, 4vw, 42px); letter-spacing: -.035em; line-height: 1.1; }
+    h3 { margin: 0 0 6px; font-size: 17px; }
+    .section-note { color: var(--muted); margin: 0 0 20px; max-width: 850px; }
+    .card { background: rgba(255,253,248,.9); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .overview { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .route { padding: 20px; position: relative; overflow: hidden; }
+    .route::after { content: ""; width: 150px; height: 150px; position: absolute; right: -60px; top: -60px; border-radius: 50%; background: var(--route-soft); opacity: .8; }
+    .route.feather { --route: var(--orange); --route-soft: var(--orange-soft); }
+    .route.pico { --route: var(--blue); --route-soft: var(--blue-soft); }
+    .route-tag { color: var(--route); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; font-weight: 900; }
+    .route h3 { font-size: 24px; margin: 2px 0 3px; }
+    .route p { margin: 0; color: var(--muted); }
+    .flow { display: flex; align-items: stretch; gap: 6px; margin-top: 18px; overflow-x: auto; padding-bottom: 5px; }
+    .node { min-width: 112px; flex: 1 0 112px; border: 1px solid var(--line); border-radius: 12px; padding: 11px; background: white; }
+    .node strong, .node small { display: block; }
+    .node strong { font-size: 13px; line-height: 1.2; }
+    .node small { color: var(--muted); margin-top: 4px; font-size: 11px; line-height: 1.3; }
+    .arrow { align-self: center; color: var(--route); font-size: 20px; font-weight: 900; }
+    .shared { margin-top: 16px; padding: 17px 20px; display: flex; align-items: center; gap: 16px; border: 1px dashed var(--green); border-radius: 15px; background: var(--green-soft); }
+    .shared strong { color: var(--green); }
+    .shared span { color: #465c51; }
+    .layer-stack { display: grid; gap: 10px; }
+    .layer { display: grid; grid-template-columns: 170px 1fr 170px; align-items: center; gap: 18px; padding: 18px; }
+    .layer-name { font-weight: 900; font-size: 18px; }
+    .layer-files { color: var(--muted); }
+    .layer-files code { color: var(--ink); }
+    .layer-duty { justify-self: end; padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--green-soft); color: var(--green); text-align: center; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .88em; }
+    .pipeline { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pipe-card { padding: 18px; border-top: 5px solid var(--accent); }
+    .pipe-card:nth-child(1) { --accent: var(--purple); }
+    .pipe-card:nth-child(2) { --accent: var(--green); }
+    .pipe-card:nth-child(3) { --accent: var(--blue); }
+    .pipe-card .num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: white; background: var(--accent); font-weight: 900; margin-bottom: 12px; }
+    .pipe-card p { margin: 5px 0 0; color: var(--muted); }
+    .wire { margin-top: 13px; display: grid; grid-template-columns: 62px 1fr; gap: 7px; align-items: center; }
+    .wire b { font-size: 12px; }
+    .bytes { display: grid; grid-template-columns: repeat(8, minmax(27px, 1fr)); gap: 3px; }
+    .byte { background: var(--purple-soft); color: var(--purple); border-radius: 6px; text-align: center; padding: 5px 2px; font: 700 10px ui-monospace, monospace; }
+    .cores { display: grid; grid-template-columns: 1fr 80px 1fr; align-items: stretch; gap: 12px; }
+    .core { padding: 20px; }
+    .core.core1 { border-color: #efc7b3; }
+    .core.core0 { border-color: #b8dadd; }
+    .core-label { font-weight: 900; font-size: 22px; }
+    .core-sub { color: var(--muted); font-size: 13px; margin-bottom: 15px; }
+    .task { border-left: 3px solid var(--accent); padding: 8px 10px; margin: 8px 0; background: color-mix(in srgb, var(--accent) 8%, white); border-radius: 0 8px 8px 0; }
+    .core1 { --accent: var(--orange); }
+    .core0 { --accent: var(--blue); }
+    .bridge-queue { display: grid; place-items: center; align-content: center; gap: 10px; color: var(--green); font-size: 12px; font-weight: 900; text-align: center; }
+    .queue-box { writing-mode: vertical-rl; transform: rotate(180deg); padding: 12px 8px; border: 2px dashed var(--green); border-radius: 10px; background: var(--green-soft); }
+    .timing { margin-top: 16px; padding: 18px 20px; }
+    .timeline { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 5px; margin-top: 14px; }
+    .tick { position: relative; padding-top: 22px; font-size: 12px; color: var(--muted); }
+    .tick::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; height: 5px; background: var(--orange); }
+    .tick:nth-child(n+3)::before { background: var(--blue); }
+    .tick b { display: block; color: var(--ink); }
+    .states { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+    .state { padding: 8px 10px; border: 1px solid #bbd9dd; background: var(--blue-soft); color: #195968; border-radius: 10px; font-size: 12px; font-weight: 800; }
+    .state.ready { border-color: #b7d7c3; background: var(--green-soft); color: var(--green); }
+    .state.fail { border-color: #edc8b6; background: var(--orange-soft); color: #9b4824; }
+    .state-arrow { color: var(--muted); }
+    .backoff { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .tree { padding: 20px; overflow-x: auto; }
+    .tree pre { margin: 0; min-width: 680px; font: 13px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .tree .dim { color: #8a969a; }
+    .tree .shared-file { color: var(--green); font-weight: 800; }
+    .tree .pico-file { color: var(--blue); font-weight: 800; }
+    .tree .feather-file { color: var(--orange); font-weight: 800; }
+    .tests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .test { padding: 18px; }
+    .test p { color: var(--muted); margin: 4px 0 12px; }
+    .command { padding: 10px; border-radius: 9px; background: #202b30; color: #dce8e7; overflow-x: auto; font: 11px/1.5 ui-monospace, monospace; white-space: nowrap; }
+    .boundaries { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .boundary { padding: 18px; }
+    .boundary ul { margin: 10px 0 0; padding-left: 20px; }
+    .boundary li { margin: 5px 0; }
+    .yes { border-top: 5px solid var(--green); }
+    .no { border-top: 5px solid var(--orange); }
+    footer { color: var(--muted); padding: 22px 0 48px; border-top: 1px solid var(--line); font-size: 13px; }
+    @media (max-width: 800px) {
+      .overview, .pipeline, .tests, .boundaries { grid-template-columns: 1fr; }
+      .layer { grid-template-columns: 1fr; gap: 5px; }
+      .layer-duty { justify-self: start; }
+      .cores { grid-template-columns: 1fr; }
+      .bridge-queue { grid-template-columns: auto 1fr auto; }
+      .queue-box { writing-mode: horizontal-tb; transform: none; }
+      .timeline { grid-template-columns: 1fr 1fr; }
+      h1 { font-size: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <div class="eyebrow">Repository field guide · embedded C · RP2040 / RP2350</div>
+    <h1>One keyboard. Two radios. <span>One USB contract.</span></h1>
+    <p class="lede">This repository turns a Logitech G915 into a plain wired boot keyboard for a PlayStation 5. The input transport changes; the correctness-critical state and USB output path stay shared.</p>
+    <div class="facts">
+      <span class="fact">52 tracked firmware files</span>
+      <span class="fact">2 production firmwares</span>
+      <span class="fact">1 shared report pipeline</span>
+      <span class="fact">8-byte USB boot reports</span>
+      <span class="fact">No console-side software</span>
+    </div>
+  </header>
+
+  <nav><div class="wrap">
+    <a href="#big-picture">Big picture</a><a href="#shared">Shared core</a><a href="#feather">Feather</a><a href="#pico">Pico 2 W</a><a href="#files">Files</a><a href="#tests">Build & tests</a><a href="#scope">Scope</a>
+  </div></nav>
+
+  <main class="wrap">
+    <section id="big-picture">
+      <h2>The two end-to-end routes</h2>
+      <p class="section-note">Both routes normalize input into <code>keyboard_state_t</code>, publish it through <code>report_pipe_t</code>, then expose the exact same TinyUSB boot-keyboard device to the PS5.</p>
+      <div class="overview">
+        <article class="card route feather">
+          <div class="route-tag">Recommended · ~1 ms source polling</div>
+          <h3>Feather + LIGHTSPEED</h3>
+          <p>USB receiver in; native USB keyboard out.</p>
+          <div class="flow">
+            <div class="node"><strong>G915</strong><small>LIGHTSPEED mode</small></div><div class="arrow">›</div>
+            <div class="node"><strong>Receiver</strong><small>USB-A / HID boot</small></div><div class="arrow">›</div>
+            <div class="node"><strong>Core 1</strong><small>PIO USB host</small></div><div class="arrow">›</div>
+            <div class="node"><strong>Core 0</strong><small>ordered pipeline</small></div><div class="arrow">›</div>
+            <div class="node"><strong>PS5</strong><small>USB-C keyboard</small></div>
+          </div>
+        </article>
+        <article class="card route pico">
+          <div class="route-tag">Alternative · ≥7.5 ms BLE interval</div>
+          <h3>Pico 2 W + Bluetooth</h3>
+          <p>BLE HID in; native USB keyboard out.</p>
+          <div class="flow">
+            <div class="node"><strong>G915</strong><small>Bluetooth mode</small></div><div class="arrow">›</div>
+            <div class="node"><strong>CYW43439</strong><small>BLE link</small></div><div class="arrow">›</div>
+            <div class="node"><strong>BTstack</strong><small>HOG + decoder</small></div><div class="arrow">›</div>
+            <div class="node"><strong>Main loop</strong><small>ordered pipeline</small></div><div class="arrow">›</div>
+            <div class="node"><strong>PS5</strong><small>USB keyboard</small></div>
+          </div>
+        </article>
+      </div>
+      <div class="shared"><strong>Convergence point</strong><span><code>keyboard_state</code> → <code>report_pipe</code> → <code>usb_keyboard</code> is compiled into both targets from <code>firmware/common</code>.</span></div>
+    </section>
+
+    <section id="shared">
+      <h2>The shared correctness core</h2>
+      <p class="section-note">This is the architectural center of gravity: transport-specific code may reconnect, reset, overflow, suspend, or race, but stale keys must never remain pressed on the console.</p>
+      <div class="pipeline">
+        <article class="card pipe-card">
+          <div class="num">1</div><h3>Canonical state</h3>
+          <code>core/keyboard_state.c</code>
+          <p>256 usage bits + modifier bits + source error bits. Merges BLE fragments, filters unsupported usages, and detects new presses.</p>
+        </article>
+        <article class="card pipe-card">
+          <div class="num">2</div><h3>Ordered report pipe</h3>
+          <code>core/report_pipe.c</code>
+          <p>16-slot queue with epochs, sequence numbers, deduplication, overflow recovery, release barriers, resync, and remote-wake latching.</p>
+        </article>
+        <article class="card pipe-card">
+          <div class="num">3</div><h3>USB device adapter</h3>
+          <code>usb/usb_keyboard.c</code>
+          <p>One report in flight. Owns mount, reset, suspend/resume, HID idle/protocol, LED output, remote wake, acknowledgement, and latency statistics.</p>
+          <div class="wire"><b>8 bytes</b><div class="bytes"><span class="byte">MOD</span><span class="byte">—</span><span class="byte">K1</span><span class="byte">K2</span><span class="byte">K3</span><span class="byte">K4</span><span class="byte">K5</span><span class="byte">K6</span></div></div>
+        </article>
+      </div>
+      <div class="layer-stack" style="margin-top:12px">
+        <div class="card layer"><div class="layer-name">Normal change</div><div class="layer-files">new state → dedupe → enqueue → encode → arm endpoint → host ACK</div><div class="layer-duty">preserve order</div></div>
+        <div class="card layer"><div class="layer-name">Source reset</div><div class="layer-files">advance epoch → reject stale reports → clear queued work → release barrier</div><div class="layer-duty">prevent stuck keys</div></div>
+        <div class="card layer"><div class="layer-name">USB lifecycle</div><div class="layer-files">deactivate on unmount/suspend → retain latest only → release + current state on activation</div><div class="layer-duty">safe resync</div></div>
+      </div>
+    </section>
+
+    <section id="feather">
+      <h2>Feather: two cores and two USB clocks</h2>
+      <p class="section-note">The RP2040 hosts the LIGHTSPEED receiver with PIO USB on core 1, while its native USB controller presents a keyboard to the PS5 on core 0.</p>
+      <div class="cores">
+        <article class="card core core1">
+          <div class="core-label">Core 1 · input</div><div class="core-sub">PIO USB host + receiver</div>
+          <div class="task"><b><code>boot_keyboard_host.c</code></b><br>Claims only the first HID boot-keyboard interface.</div>
+          <div class="task"><b>SET_IDLE → SET_PROTOCOL(Boot)</b><br>Deliberately skips the report descriptor the receiver may stall.</div>
+          <div class="task"><b><code>usb_host_keyboard.c</code></b><br>Decodes, deduplicates, stamps, and queues reports.</div>
+          <div class="task"><b><code>sof_phase_lock.c</code></b><br>Generates and gently steers the 1 ms host frame.</div>
+        </article>
+        <div class="bridge-queue"><span>state + epoch + time</span><div class="queue-box">multicore queue</div><span>status + resets</span></div>
+        <article class="card core core0">
+          <div class="core-label">Core 0 · output</div><div class="core-sub">native USB device + PS5</div>
+          <div class="task"><b><code>tud_task()</code></b><br>Services the console-facing TinyUSB device stack.</div>
+          <div class="task"><b><code>usb_host_keyboard_task()</code></b><br>Drains core 1 events into the shared report pipe.</div>
+          <div class="task"><b><code>usb_keyboard_task()</code></b><br>Arms one 8-byte boot report and awaits ACK.</div>
+          <div class="task"><b>SOF interrupt hook</b><br>Shares the PS5 frame reference back to core 1.</div>
+        </article>
+      </div>
+      <div class="card timing">
+        <h3>Why phase lock exists</h3>
+        <p class="section-note">The receiver bus and PS5 bus each tick every 1 ms but are unrelated. Core 1 steers the receiver poll to land about 250 μs before the PS5 frame, reducing the chance that a fresh report misses the next console poll.</p>
+        <div class="timeline"><div class="tick"><b>Receiver SOF</b>PIO host polls</div><div class="tick"><b>Report arrives</b>decode + queue</div><div class="tick"><b>Endpoint armed</b>core 0 publishes</div><div class="tick"><b>PS5 IN token</b>report acknowledged</div></div>
+      </div>
+    </section>
+
+    <section id="pico">
+      <h2>Pico 2 W: one cooperative loop</h2>
+      <p class="section-note"><code>tud_task()</code>, the USB adapter, CYW43/BTstack polling, UART recovery, and LED service all run in one foreground execution context.</p>
+      <div class="card" style="padding:20px">
+        <h3>BLE HOG client lifecycle</h3>
+        <div class="states">
+          <span class="state">STARTING</span><span class="state-arrow">→</span>
+          <span class="state">UNPROVISIONED</span><span class="state-arrow">→</span>
+          <span class="state">SCANNING</span><span class="state-arrow">→</span>
+          <span class="state">CONNECTING</span><span class="state-arrow">→</span>
+          <span class="state">SECURING</span><span class="state-arrow">→</span>
+          <span class="state">HIDS_SETUP</span><span class="state-arrow">→</span>
+          <span class="state ready">READY</span>
+        </div>
+        <div class="states" style="margin-top:12px"><span class="state fail">timeout / disconnect / auth failure</span><span class="state-arrow">→</span><span class="state fail">DISCONNECTING or CANCELING</span><span class="state-arrow">→</span><span class="state fail">BACKOFF</span><span class="state-arrow">↺ approved peer or scan</span></div>
+        <p class="backoff">Security requests bonding + MITM + LE Secure Connections. The first secured keyboard identity is stored in flash; later boots reconnect only to it. UART command <code>forget</code> deletes that approval and bonding record.</p>
+      </div>
+      <div class="layer-stack" style="margin-top:12px">
+        <div class="card layer"><div class="layer-name"><code>hog_client.c</code></div><div class="layer-files">connection policy, timers, peer persistence, security events, HIDS lifecycle, source epochs</div><div class="layer-duty">transport state machine</div></div>
+        <div class="card layer"><div class="layer-name"><code>hid_keyboard_decoder.c</code></div><div class="layer-files">validates BTstack HID fields and unions independent <code>(service, report ID)</code> fragments</div><div class="layer-duty">canonicalize reports</div></div>
+        <div class="card layer"><div class="layer-name"><code>main.c</code></div><div class="layer-files">filters to supported boot usages, publishes callbacks, services USB/BLE/UART/LED</div><div class="layer-duty">composition root</div></div>
+      </div>
+    </section>
+
+    <section id="files">
+      <h2>Repository responsibilities</h2>
+      <p class="section-note">Generated build directories are ignored here. Color indicates shared, Bluetooth-specific, or LIGHTSPEED-specific runtime code.</p>
+      <div class="card tree"><pre>G915/
+├── README.md                              <span class="dim"># user guide + adapter choice</span>
+├── .ai/                                  <span class="dim"># hardware research notes</span>
+├── .vscode/                              <span class="dim"># local CMake/debug tooling</span>
+└── firmware/
+    ├── <span class="shared-file">common/</span>                             <span class="dim"># built into both production targets</span>
+    │   ├── <span class="shared-file">core/keyboard_state.{c,h}</span>       <span class="dim"># transport-neutral pressed-key model</span>
+    │   ├── <span class="shared-file">core/report_pipe.{c,h}</span>          <span class="dim"># ordering, epochs, resync, wake latch</span>
+    │   ├── <span class="shared-file">usb/usb_keyboard.{c,h}</span>          <span class="dim"># console-facing TinyUSB device adapter</span>
+    │   └── tests/test_core.c              <span class="dim"># native core invariants</span>
+    ├── <span class="pico-file">g915_pico2w_bridge/</span>                  <span class="dim"># BLE input target (RP2350 + CYW43439)</span>
+    │   ├── <span class="pico-file">main.c</span>                            <span class="dim"># single-loop composition</span>
+    │   ├── <span class="pico-file">ble/hog_client.{c,h}</span>              <span class="dim"># pairing/reconnect/security/HOG</span>
+    │   ├── <span class="pico-file">ble/hid_keyboard_decoder.{c,h}</span>    <span class="dim"># HID report-map decoding</span>
+    │   ├── app_config.h                   <span class="dim"># BLE timeouts, limits, USB policy</span>
+    │   ├── btstack_config*.h              <span class="dim"># BTstack capacity/features</span>
+    │   ├── tusb_config.h                  <span class="dim"># USB device-only configuration</span>
+    │   ├── usb_descriptors.c              <span class="dim"># boot keyboard identity/descriptors</span>
+    │   └── tests/test_hid_keyboard_decoder.c
+    ├── <span class="feather-file">g915_feather_rp2040_usb_host_bridge/</span> <span class="dim"># USB receiver target (RP2040)</span>
+    │   ├── <span class="feather-file">main.c</span>                         <span class="dim"># dual-core composition + diagnostics</span>
+    │   ├── <span class="feather-file">host/boot_keyboard_host.{c,h}</span>  <span class="dim"># minimal custom TinyUSB host driver</span>
+    │   ├── <span class="feather-file">host/usb_host_keyboard.{c,h}</span>   <span class="dim"># report decode + multicore handoff</span>
+    │   ├── <span class="feather-file">host/frame_phase.{c,h}</span>         <span class="dim"># pure phase-tracking math</span>
+    │   ├── <span class="feather-file">host/sof_phase_lock.{c,h}</span>      <span class="dim"># hardware-alarm frame steering</span>
+    │   ├── app_config.h                   <span class="dim"># pins, poll interval, phase tuning</span>
+    │   ├── tusb_config.h                  <span class="dim"># device + custom-host configuration</span>
+    │   ├── usb_descriptors.c              <span class="dim"># keyboard / optional CDC identity</span>
+    │   └── tests/test_frame_phase.c
+    └── g915_pico2w_blink/                 <span class="dim"># tiny board/LED smoke test, not a bridge</span></pre></div>
+    </section>
+
+    <section id="tests">
+      <h2>Build and verification map</h2>
+      <p class="section-note">CMake exposes shared sources as an interface library so each target compiles them with its own <code>app_config.h</code> and <code>tusb_config.h</code>.</p>
+      <div class="tests">
+        <article class="card test"><h3>Shared native tests</h3><p>State merging/filtering, rollover, dedupe, stale epochs, overflow, barriers, resync, remote wake, modifier recovery.</p><div class="command">cmake -S firmware/common/tests -B … &amp;&amp; ctest</div></article>
+        <article class="card test"><h3>Pico 2 W tests</h3><p>Includes the shared core suite; adds HID decoder cases using BTstack’s real parser when the Pico SDK is available.</p><div class="command">cmake -S firmware/g915_pico2w_bridge/tests -B …</div></article>
+        <article class="card test"><h3>Feather tests</h3><p>Includes the shared core suite; adds wrap-safe SOF tracker/controller and phase-adjustment tests.</p><div class="command">cmake -S firmware/g915_feather…/tests -B …</div></article>
+      </div>
+      <div class="overview" style="margin-top:12px">
+        <div class="card layer"><div class="layer-name">Production</div><div class="layer-files"><code>feather-release</code> / <code>pico2w-release</code></div><div class="layer-duty">UF2 output</div></div>
+        <div class="card layer"><div class="layer-name">Diagnostics</div><div class="layer-files"><code>feather-diagnostic</code>: CDC latency, frame waits, histogram, phase lock status</div><div class="layer-duty">different USB PID</div></div>
+      </div>
+    </section>
+
+    <section id="scope">
+      <h2>What the project promises—and refuses</h2>
+      <div class="boundaries">
+        <article class="card boundary yes"><h3>In scope</h3><ul><li>Ordinary keyboard keys and modifiers</li><li>Six-key USB boot protocol + rollover</li><li>Safe reconnect, reset, suspend, and resynchronization</li><li>Keyboard LEDs received from the console</li><li>Latency measurement and Feather phase tuning</li></ul></article>
+        <article class="card boundary no"><h3>Intentionally out of scope</h3><ul><li>Mouse forwarding</li><li>Media / consumer-control reports</li><li>Logitech HID++ vendor features</li><li>Adding keyboard support to games that lack it</li><li>Pairing the LIGHTSPEED receiver (done beforehand on a PC)</li></ul></article>
+      </div>
+    </section>
+  </main>
+  <footer><div class="wrap">Generated from the tracked source and repository guides. Start reading at <code>README.md</code>, then the chosen target’s <code>main.c</code>, then <code>firmware/common/core/report_pipe.c</code>.</div></footer>
+</body>
+</html>
