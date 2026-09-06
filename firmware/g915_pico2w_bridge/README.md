@@ -28,14 +28,14 @@ The main components are:
 - `ble/hid_keyboard_decoder.c` — validates HID report lengths, decodes
   keyboard fields, and combines keyboard fragments into a typed canonical
   state.
-- `core/keyboard_state.c` — represents modifiers, key usages, and source error
+- `../common/core/keyboard_state.c` — represents modifiers, key usages, and source error
   usages independently of both BTstack and TinyUSB. It converts that state to
   the six-key USB boot protocol and emits rollover if more than six supported
   keys are held.
-- `core/report_pipe.c` — orders state changes, suppresses duplicates, and uses
+- `../common/core/report_pipe.c` — orders state changes, suppresses duplicates, and uses
   connection epochs plus release/resynchronization barriers so stale reports
   are not replayed after a source reset or lifecycle transition.
-- `usb/usb_keyboard.c` — owns USB mount, unmount, suspend, resume, HID idle,
+- `../common/usb/usb_keyboard.c` — owns USB mount, unmount, suspend, resume, HID idle,
   protocol, output LED, and transfer-completion behavior. It sends one report
   at a time and resynchronizes the host after USB lifecycle changes.
 
@@ -91,9 +91,12 @@ cmake -S . -B build -G Ninja -DPICO_BOARD=pico2_w -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-## Native core tests
+## Native tests
 
-The state encoder and report-pipeline tests do not require the Pico SDK:
+The keyboard-state and report-pipe modules are shared with the Feather bridge
+and live in `firmware/common`. Configuring this directory's `tests` project
+builds those core tests together with the BLE decoder tests, which use
+BTstack's real HID parser and therefore need `PICO_SDK_PATH`:
 
 ```powershell
 cmake -S tests -B tests/build -G Ninja
@@ -101,6 +104,4 @@ cmake --build tests/build
 ctest --test-dir tests/build --output-on-failure
 ```
 
-They cover modifiers and usage filtering, six-key rollover, state merging,
-duplicate suppression, stale epochs, source-reset barriers, overflow recovery,
-USB activation resynchronization, and the remote-wake latch.
+Without a Pico SDK the decoder tests are skipped and only the core tests run.

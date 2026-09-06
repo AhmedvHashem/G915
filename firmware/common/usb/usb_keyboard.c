@@ -5,6 +5,9 @@
 #include <string.h>
 
 #include "app_config.h"
+#include "hardware/regs/usb.h"
+#include "hardware/structs/usb.h"
+#include "hardware/timer.h"
 #include "pico/stdlib.h"
 #include "tusb.h"
 
@@ -12,9 +15,13 @@
 #define APP_USB_STARTUP_MODIFIER_RECOVERY_MASK 0u
 #endif
 
+#define USB_FRAME_NUMBER_MASK 0x7ffu
+
 static report_pipe_t *keyboard_pipe;
 static report_pipe_item_t pending_item;
 static report_pipe_item_t in_flight_item;
+static uint32_t in_flight_armed_us;
+static uint16_t in_flight_armed_frame;
 static bool pending_valid;
 static bool report_in_flight;
 static bool usb_mounted;
@@ -26,15 +33,69 @@ static uint8_t idle_rate;
 static uint32_t last_report_ms;
 static uint32_t suspend_started_ms;
 static usb_keyboard_latency_t latency;
+static usb_keyboard_delivery_observer_t delivery_observer;
+static void *delivery_observer_context;
 
 static uint32_t now_ms(void) {
     return to_ms_since_boot(get_absolute_time());
+}
+
+// The frame number of the most recent SOF the host sent us. The controller
+// updates this register on every SOF whether or not its interrupt is enabled.
+static uint16_t host_frame_number(void) {
+    return (uint16_t)(usb_hw->sof_rd & USB_SOF_RD_BITS);
 }
 
 static void encode_state(const keyboard_state_t *state,
                          keyboard_boot_report_t *report) {
     keyboard_state_to_boot_report(state, APP_USB_KEY_USAGE_MAX,
                                   APP_USB_FORWARD_SOURCE_ERRORS != 0, report);
+}
+
+static void record_delivery(const report_pipe_item_t *item,
+                            uint32_t completed_us, uint16_t completed_frame) {
+    uint32_t frames =
+        (uint32_t)(completed_frame - in_flight_armed_frame) & USB_FRAME_NUMBER_MASK;
+    if (frames > 3u) frames = 3u;
+    ++latency.frames_waited[frames];
+
+    // A zero stamp marks an item the pipe synthesised, which has no source
+    // event to measure from. Unsigned arithmetic makes the 32-bit microsecond
+    // counter wrap correctly across its ~71 minute period.
+    if (item->timestamp_us != 0) {
+        const uint32_t elapsed_us = completed_us - item->timestamp_us;
+        const uint32_t arm_us = in_flight_armed_us - item->timestamp_us;
+        const uint32_t poll_us = completed_us - in_flight_armed_us;
+
+        if (latency.count == 0 || elapsed_us < latency.min_us) {
+            latency.min_us = elapsed_us;
+        }
+        if (elapsed_us > latency.max_us) latency.max_us = elapsed_us;
+        latency.total_us += elapsed_us;
+        ++latency.count;
+
+        uint32_t bucket = elapsed_us / USB_KEYBOARD_LATENCY_BUCKET_US;
+        if (bucket >= USB_KEYBOARD_LATENCY_BUCKET_COUNT) {
+            bucket = USB_KEYBOARD_LATENCY_BUCKET_COUNT - 1u;
+        }
+        ++latency.histogram[bucket];
+
+        latency.arm_total_us += arm_us;
+        if (arm_us > latency.arm_max_us) latency.arm_max_us = arm_us;
+        latency.poll_total_us += poll_us;
+        if (poll_us > latency.poll_max_us) latency.poll_max_us = poll_us;
+    }
+
+    if (delivery_observer != NULL) {
+        const usb_keyboard_delivery_t delivery = {
+            .source_us = item->timestamp_us,
+            .armed_us = in_flight_armed_us,
+            .completed_us = completed_us,
+            .armed_frame = in_flight_armed_frame,
+            .completed_frame = completed_frame,
+        };
+        delivery_observer(&delivery, delivery_observer_context);
+    }
 }
 
 void usb_keyboard_init(report_pipe_t *pipe) {
@@ -49,6 +110,8 @@ void usb_keyboard_init(report_pipe_t *pipe) {
     idle_rate = 0;
     last_report_ms = now_ms();
     suspend_started_ms = 0;
+    in_flight_armed_us = 0;
+    in_flight_armed_frame = 0;
     report_pipe_set_active(pipe, false);
     usb_keyboard_reset_latency();
 }
@@ -102,6 +165,7 @@ void usb_keyboard_task(void) {
             pending_item.state = *latest;
             pending_item.epoch = keyboard_pipe->epoch;
             pending_item.sequence = 0;
+            pending_item.timestamp_us = 0;
         }
         pending_valid = true;
     }
@@ -117,6 +181,8 @@ void usb_keyboard_task(void) {
     }
 
     in_flight_item = pending_item;
+    in_flight_armed_us = time_us_32();
+    in_flight_armed_frame = host_frame_number();
     pending_valid = false;
     report_in_flight = true;
 }
@@ -131,6 +197,12 @@ void usb_keyboard_get_latency(usb_keyboard_latency_t *result) {
 
 void usb_keyboard_reset_latency(void) {
     latency = (usb_keyboard_latency_t){0};
+}
+
+void usb_keyboard_set_delivery_observer(
+    usb_keyboard_delivery_observer_t observer, void *context) {
+    delivery_observer = observer;
+    delivery_observer_context = context;
 }
 
 void tud_mount_cb(void) {
@@ -243,19 +315,7 @@ void tud_hid_report_complete_cb(uint8_t instance, const uint8_t *report,
     (void)length;
     if (keyboard_pipe != NULL && report_in_flight) {
         (void)report_pipe_acknowledge(keyboard_pipe, &in_flight_item);
-        // A zero stamp marks an item the pipe synthesised, which has no source
-        // event to measure from. Unsigned arithmetic makes the 32-bit
-        // microsecond counter wrap correctly across its ~71 minute period.
-        if (in_flight_item.timestamp_us != 0) {
-            const uint32_t elapsed_us =
-                time_us_32() - in_flight_item.timestamp_us;
-            if (latency.count == 0 || elapsed_us < latency.min_us) {
-                latency.min_us = elapsed_us;
-            }
-            if (elapsed_us > latency.max_us) latency.max_us = elapsed_us;
-            latency.total_us += elapsed_us;
-            ++latency.count;
-        }
+        record_delivery(&in_flight_item, time_us_32(), host_frame_number());
     }
     report_in_flight = false;
     last_report_ms = now_ms();

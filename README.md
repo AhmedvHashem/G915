@@ -4,7 +4,9 @@ Firmware that turns either a Raspberry Pi Pico 2 W or an Adafruit Feather
 RP2040 USB Host into a Logitech G915-to-USB keyboard bridge for PS5. The Pico
 2 W receives the keyboard over Bluetooth LE; the Feather receives it through
 the G915 LIGHTSPEED USB receiver. Both expose one USB boot-keyboard interface
-to the console.
+to the console. The Feather path is the low-latency one: BLE cannot go below a
+7.5 ms connection interval, while LIGHTSPEED delivers reports every
+millisecond.
 
 ## Pico 2 W quick start
 
@@ -37,15 +39,19 @@ cmake --build --preset pico2w-release
 The generated UF2 is written to `firmware/g915_pico2w_bridge/build`. A
 `pico2w-debug` configure/build preset is also available.
 
-The platform-independent keyboard-state and report-pipeline tests can run on
-the development machine:
+The keyboard-state and report-pipeline modules are shared by both bridges and
+have platform-independent tests that run on the development machine:
 
 ```powershell
-cd firmware/g915_pico2w_bridge
+cd firmware/common
 cmake -S tests -B tests/build -G Ninja
 cmake --build tests/build
 ctest --test-dir tests/build --output-on-failure
 ```
+
+Each bridge's own `tests` directory runs these and adds its own: the Pico 2 W
+bridge adds the BLE decoder tests when `PICO_SDK_PATH` is set, and the Feather
+bridge adds its frame phase lock tests.
 
 See the [firmware README](firmware/g915_pico2w_bridge/README.md) for the
 architecture, USB lifecycle behavior, security model, and a direct CMake build
@@ -70,6 +76,8 @@ for architecture, flashing, and wiring details.
 
 ## Repository layout
 
+- `firmware/common` — keyboard state, report pipe, and the USB keyboard
+  adapter shared by both bridges, with their host-side tests.
 - `firmware/g915_pico2w_bridge` — BLE HID-to-USB HID bridge firmware.
 - `firmware/g915_feather_rp2040_usb_host_bridge` — LIGHTSPEED receiver
   USB-host-to-USB-HID bridge firmware for the Adafruit Feather board.

@@ -17,9 +17,13 @@ typedef struct {
     uint16_t pid;
     uint8_t hid_interface_count;
     uint8_t keyboard_interface_count;
-    // Smallest frame gap ever observed between two keyboard reports, which is
-    // the interrupt polling interval of the receiver in milliseconds. Zero
-    // until at least two reports have arrived.
+    // bInterval the receiver declared for its keyboard endpoint, in frames,
+    // and the interval this bridge actually polls it at. Zero until claimed.
+    uint8_t declared_poll_interval;
+    uint8_t poll_interval;
+    // Smallest frame gap ever observed between two keyboard reports. With
+    // the receiver NAKing idle frames this converges on the effective
+    // polling interval in frames. Zero until at least two reports arrived.
     uint32_t min_report_frame_gap;
     // Reports that could not be re-armed on the receiver IN endpoint.
     uint32_t report_arm_failure_count;

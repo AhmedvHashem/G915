@@ -8,13 +8,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+# Keyboard state, the report pipe, and the USB keyboard adapter are shared
+# with the Feather bridge and live in firmware/common.
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../common ${CMAKE_BINARY_DIR}/common)
+
 set(BRIDGE_SOURCES
     main.c
-    core/keyboard_state.c
-    core/report_pipe.c
     ble/hid_keyboard_decoder.c
     ble/hog_client.c
-    usb/usb_keyboard.c
     usb_descriptors.c
 )
 
@@ -25,8 +26,8 @@ add_executable(g915_pico2w_bridge ${BRIDGE_SOURCES})
 # linking an unused TCP/IP stack.
 target_compile_definitions(g915_pico2w_bridge PRIVATE CYW43_LWIP=0)
 
-set_source_files_properties(${BRIDGE_SOURCES} PROPERTIES
-    COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic"
+set_source_files_properties(${BRIDGE_SOURCES} ${G915_BRIDGE_COMMON_SOURCES}
+    PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic"
 )
 
 # TinyUSB 0.18 declares a 32-bit enum value that GCC diagnoses under
@@ -34,8 +35,8 @@ set_source_files_properties(${BRIDGE_SOURCES} PROPERTIES
 # surfacing a third-party header diagnostic we cannot fix here.
 set_property(SOURCE
     main.c
-    usb/usb_keyboard.c
     usb_descriptors.c
+    ${G915_BRIDGE_COMMON_TUSB_SOURCES}
     APPEND PROPERTY COMPILE_OPTIONS "-Wno-pedantic"
 )
 
@@ -44,6 +45,7 @@ target_include_directories(g915_pico2w_bridge PRIVATE
 )
 
 target_link_libraries(g915_pico2w_bridge PRIVATE
+    g915_bridge_common
     pico_stdlib
     pico_unique_id
     pico_cyw43_arch_poll

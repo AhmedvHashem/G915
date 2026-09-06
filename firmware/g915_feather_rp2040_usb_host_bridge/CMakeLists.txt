@@ -40,77 +40,21 @@ set(PICO_PIO_USB_PATH "${pico_pio_usb_SOURCE_DIR}" CACHE PATH
 
 pico_sdk_init()
 
-# The G915 LIGHTSPEED receiver exposes three HID interfaces but intermittently
-# stalls the optional GET_DESCRIPTOR(report) control request when connected
-# through Pico-PIO-USB.  This bridge only consumes boot-keyboard reports, so a
-# report descriptor is unnecessary.  Generate a project-local TinyUSB HID host
-# source that completes mounting immediately instead of making that request.
-# Keep the installed Pico SDK untouched and fail configuration if TinyUSB's
-# implementation changes enough that this narrowly scoped patch no longer
-# applies.
-set(TINYUSB_HID_HOST_SOURCE
-    "${PICO_TINYUSB_PATH}/src/class/hid/hid_host.c")
-set(PATCHED_TINYUSB_DIR "${CMAKE_CURRENT_BINARY_DIR}/patched-tinyusb")
-set(PATCHED_TINYUSB_HID_HOST
-    "${PATCHED_TINYUSB_DIR}/hid_host_boot_protocol.c")
-file(MAKE_DIRECTORY "${PATCHED_TINYUSB_DIR}")
-file(READ "${TINYUSB_HID_HOST_SOURCE}" TINYUSB_HID_HOST_CONTENTS)
+# Keyboard state, the report pipe, and the USB keyboard adapter are shared
+# with the Pico 2 W bridge and live in firmware/common.
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/../common ${CMAKE_BINARY_DIR}/common)
 
-set(TINYUSB_REPORT_DESCRIPTOR_BLOCK [=[
-      // Get Report Descriptor if possible
-      // using usbh enumeration buffer since report descriptor can be very long
-      if (p_hid->report_desc_len > CFG_TUH_ENUMERATION_BUFSIZE) {
-        TU_LOG_DRV("HID Skip Report Descriptor since it is too large %u bytes\r\n", p_hid->report_desc_len);
-
-        // Driver is mounted without report descriptor
-        config_driver_mount_complete(daddr, idx, NULL, 0);
-      } else {
-        tuh_descriptor_get_hid_report(daddr, itf_num, p_hid->report_desc_type, 0,
-                                      usbh_get_enum_buf(), p_hid->report_desc_len,
-                                      process_set_config, CONFIG_COMPLETE);
-      }
-]=])
-set(TINYUSB_BOOT_PROTOCOL_BLOCK [=[
-      // This application consumes only boot-protocol keyboard reports.  Some
-      // composite wireless receivers stall this optional descriptor request,
-      // so mount without the report descriptor.
-      TU_LOG_DRV("HID Skip Report Descriptor for boot-protocol bridge\r\n");
-      config_driver_mount_complete(daddr, idx, NULL, 0);
-]=])
-string(FIND "${TINYUSB_HID_HOST_CONTENTS}"
-    "${TINYUSB_REPORT_DESCRIPTOR_BLOCK}" TINYUSB_PATCH_OFFSET)
-if(TINYUSB_PATCH_OFFSET EQUAL -1)
-    message(FATAL_ERROR
-        "Unable to apply the G915 TinyUSB HID-host workaround; "
-        "the SDK's hid_host.c no longer contains the expected block")
-endif()
-string(REPLACE "${TINYUSB_REPORT_DESCRIPTOR_BLOCK}"
-    "${TINYUSB_BOOT_PROTOCOL_BLOCK}"
-    TINYUSB_HID_HOST_CONTENTS "${TINYUSB_HID_HOST_CONTENTS}")
-file(WRITE "${PATCHED_TINYUSB_HID_HOST}" "${TINYUSB_HID_HOST_CONTENTS}")
-
-get_target_property(TINYUSB_HOST_SOURCES tinyusb_host_base INTERFACE_SOURCES)
-set(PATCHED_TINYUSB_HOST_SOURCES)
-foreach(TINYUSB_HOST_SOURCE IN LISTS TINYUSB_HOST_SOURCES)
-    if(NOT TINYUSB_HOST_SOURCE STREQUAL "${TINYUSB_HID_HOST_SOURCE}")
-        list(APPEND PATCHED_TINYUSB_HOST_SOURCES "${TINYUSB_HOST_SOURCE}")
-    endif()
-endforeach()
-list(APPEND PATCHED_TINYUSB_HOST_SOURCES "${PATCHED_TINYUSB_HID_HOST}")
-set_property(TARGET tinyusb_host_base PROPERTY INTERFACE_SOURCES
-    "${PATCHED_TINYUSB_HOST_SOURCES}")
-target_include_directories(tinyusb_host_base INTERFACE
-    "${PICO_TINYUSB_PATH}/src/class/hid")
-
-set(PICO2_BRIDGE_DIR "${CMAKE_CURRENT_LIST_DIR}/../g915_pico2w_bridge")
-
+# The receiver side does not use TinyUSB's generic HID host class. The
+# application-defined driver in host/boot_keyboard_host.c claims only the
+# receiver's boot-keyboard interface and never requests the HID report
+# descriptor, which this receiver intermittently stalls through Pico-PIO-USB.
 set(BRIDGE_SOURCES
     main.c
+    host/boot_keyboard_host.c
+    host/frame_phase.c
+    host/sof_phase_lock.c
     host/usb_host_keyboard.c
     usb_descriptors.c
-    ${PICO2_BRIDGE_DIR}/core/keyboard_state.c
-    ${PICO2_BRIDGE_DIR}/core/report_pipe.c
-    ${PICO2_BRIDGE_DIR}/usb/usb_keyboard.c
 )
 
 add_executable(g915_feather_rp2040_usb_host_bridge ${BRIDGE_SOURCES})
@@ -131,31 +75,34 @@ else()
         BRIDGE_USB_HOST_LOG_LEVEL=0)
 endif()
 
-set_source_files_properties(${BRIDGE_SOURCES} PROPERTIES
-    COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic"
+set_source_files_properties(${BRIDGE_SOURCES} ${G915_BRIDGE_COMMON_SOURCES}
+    PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Wpedantic"
 )
 
 # TinyUSB contains a 32-bit enum constant diagnosed by GCC under -Wpedantic.
 set_property(SOURCE
     main.c
+    host/boot_keyboard_host.c
     host/usb_host_keyboard.c
     usb_descriptors.c
-    ${PICO2_BRIDGE_DIR}/usb/usb_keyboard.c
+    ${G915_BRIDGE_COMMON_TUSB_SOURCES}
     APPEND PROPERTY COMPILE_OPTIONS "-Wno-pedantic"
 )
 
 target_include_directories(g915_feather_rp2040_usb_host_bridge PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
-    ${PICO2_BRIDGE_DIR}
 )
 
 target_link_libraries(g915_feather_rp2040_usb_host_bridge PRIVATE
+    g915_bridge_common
     pico_stdlib
     pico_unique_id
     pico_multicore
     pico_sync
     hardware_clocks
     hardware_gpio
+    hardware_sync
+    hardware_timer
     tinyusb_device
     tinyusb_host
     tinyusb_pico_pio_usb

@@ -39,15 +39,16 @@
 #define CFG_TUD_HID_EP_BUFSIZE         16
 #if BRIDGE_USB_CDC_DIAGNOSTICS
 #define CFG_TUD_CDC_RX_BUFSIZE         64
-#define CFG_TUD_CDC_TX_BUFSIZE         256
+// Large enough for the multi-line diagnostics report emitted once a second.
+#define CFG_TUD_CDC_TX_BUFSIZE         1024
 #define CFG_TUD_CDC_EP_BUFSIZE         64
 #endif
 
-// A G915 LIGHTSPEED receiver exposes three HID interfaces. Only its standard
-// boot-keyboard interface is consumed.
+// A G915 LIGHTSPEED receiver exposes three HID interfaces behind a long
+// configuration descriptor. TinyUSB's generic HID host class is disabled; the
+// application-defined driver in host/boot_keyboard_host.c claims the single
+// boot-keyboard interface and leaves the others unconfigured.
 #define CFG_TUH_ENUMERATION_BUFSIZE    512
 #define CFG_TUH_DEVICE_MAX             1
 #define CFG_TUH_HUB                    0
-#define CFG_TUH_HID                    3
-#define CFG_TUH_HID_EPIN_BUFSIZE       64
-#define CFG_TUH_HID_EPOUT_BUFSIZE      64
+#define CFG_TUH_HID                    0
