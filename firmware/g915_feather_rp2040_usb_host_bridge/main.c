@@ -70,15 +70,23 @@ static void service_usb_diagnostics(void) {
 
     usb_host_keyboard_diagnostics_t diagnostics;
     usb_host_keyboard_get_diagnostics(&diagnostics);
-    char line[192];
+    usb_keyboard_latency_t latency;
+    usb_keyboard_get_latency(&latency);
+    const unsigned average_us =
+        latency.count ? (unsigned)(latency.total_us / latency.count) : 0u;
+
+    char line[256];
     const int length = snprintf(
         line, sizeof(line),
         "host_stage=%u vid=%04x pid=%04x hid_interfaces=%u keyboards=%u "
-        "poll_frames=%u arm_failures=%u\r\n",
+        "poll_frames=%u arm_failures=%u "
+        "latency_us min=%u avg=%u max=%u n=%u\r\n",
         (unsigned)diagnostics.status, diagnostics.vid, diagnostics.pid,
         diagnostics.hid_interface_count, diagnostics.keyboard_interface_count,
         (unsigned)diagnostics.min_report_frame_gap,
-        (unsigned)diagnostics.report_arm_failure_count);
+        (unsigned)diagnostics.report_arm_failure_count,
+        (unsigned)latency.min_us, average_us, (unsigned)latency.max_us,
+        (unsigned)latency.count);
     if (length > 0) {
         tud_cdc_write(line, (uint32_t)length);
         tud_cdc_write_flush();

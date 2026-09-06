@@ -8,8 +8,13 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(BRIDGE_USB_CDC_DIAGNOSTICS
     "Add a USB CDC interface with live host-enumeration diagnostics" OFF)
+# Verbose host logging calls vsnprintf on core 1 from inside the report path,
+# which inflates the latency figures the diagnostic build reports. Keep it off
+# unless enumeration itself is being debugged.
+option(BRIDGE_USB_HOST_LOG
+    "Enable verbose TinyUSB host logging (skews latency measurements)" OFF)
 
-if(BRIDGE_USB_CDC_DIAGNOSTICS)
+if(BRIDGE_USB_CDC_DIAGNOSTICS AND BRIDGE_USB_HOST_LOG)
     set(LOG 2 CACHE STRING "TinyUSB host diagnostic logging level" FORCE)
 else()
     set(LOG 0 CACHE STRING "Disable TinyUSB logging in production" FORCE)
@@ -116,6 +121,14 @@ if(BRIDGE_USB_CDC_DIAGNOSTICS)
 else()
     target_compile_definitions(g915_feather_rp2040_usb_host_bridge PRIVATE
         BRIDGE_USB_CDC_DIAGNOSTICS=0)
+endif()
+
+if(BRIDGE_USB_HOST_LOG)
+    target_compile_definitions(g915_feather_rp2040_usb_host_bridge PRIVATE
+        BRIDGE_USB_HOST_LOG_LEVEL=2)
+else()
+    target_compile_definitions(g915_feather_rp2040_usb_host_bridge PRIVATE
+        BRIDGE_USB_HOST_LOG_LEVEL=0)
 endif()
 
 set_source_files_properties(${BRIDGE_SOURCES} PROPERTIES

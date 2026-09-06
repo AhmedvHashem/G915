@@ -25,6 +25,7 @@ static uint8_t host_leds;
 static uint8_t idle_rate;
 static uint32_t last_report_ms;
 static uint32_t suspend_started_ms;
+static usb_keyboard_latency_t latency;
 
 static uint32_t now_ms(void) {
     return to_ms_since_boot(get_absolute_time());
@@ -49,6 +50,7 @@ void usb_keyboard_init(report_pipe_t *pipe) {
     last_report_ms = now_ms();
     suspend_started_ms = 0;
     report_pipe_set_active(pipe, false);
+    usb_keyboard_reset_latency();
 }
 
 void usb_keyboard_task(void) {
@@ -121,6 +123,14 @@ void usb_keyboard_task(void) {
 
 uint8_t usb_keyboard_led_state(void) {
     return host_leds;
+}
+
+void usb_keyboard_get_latency(usb_keyboard_latency_t *result) {
+    *result = latency;
+}
+
+void usb_keyboard_reset_latency(void) {
+    latency = (usb_keyboard_latency_t){0};
 }
 
 void tud_mount_cb(void) {
@@ -233,6 +243,19 @@ void tud_hid_report_complete_cb(uint8_t instance, const uint8_t *report,
     (void)length;
     if (keyboard_pipe != NULL && report_in_flight) {
         (void)report_pipe_acknowledge(keyboard_pipe, &in_flight_item);
+        // A zero stamp marks an item the pipe synthesised, which has no source
+        // event to measure from. Unsigned arithmetic makes the 32-bit
+        // microsecond counter wrap correctly across its ~71 minute period.
+        if (in_flight_item.timestamp_us != 0) {
+            const uint32_t elapsed_us =
+                time_us_32() - in_flight_item.timestamp_us;
+            if (latency.count == 0 || elapsed_us < latency.min_us) {
+                latency.min_us = elapsed_us;
+            }
+            if (elapsed_us > latency.max_us) latency.max_us = elapsed_us;
+            latency.total_us += elapsed_us;
+            ++latency.count;
+        }
     }
     report_in_flight = false;
     last_report_ms = now_ms();

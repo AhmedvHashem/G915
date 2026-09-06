@@ -32,6 +32,8 @@ typedef struct {
     source_event_kind_t kind;
     keyboard_state_t state;
     uint32_t epoch;
+    // When core 1 observed this report, for the delivery-latency measurement.
+    uint32_t timestamp_us;
     uint16_t vid;
     uint16_t pid;
     uint8_t protocol;
@@ -57,7 +59,8 @@ static volatile uint32_t report_arm_failure_count;
 static uint32_t last_report_frame;
 static bool last_report_frame_valid;
 
-static void observe_report_frame(void) {
+static uint32_t observe_report_frame(void) {
+    const uint32_t now_us = time_us_32();
     const uint32_t frame = pio_usb_host_get_frame_number();
     if (last_report_frame_valid) {
         // The receiver NAKs frames with no key change, so consecutive reports
@@ -71,6 +74,7 @@ static void observe_report_frame(void) {
     }
     last_report_frame = frame;
     last_report_frame_valid = true;
+    return now_us;
 }
 
 static void queue_event(const source_event_t *event) {
@@ -179,7 +183,8 @@ void usb_host_keyboard_task(report_pipe_t *pipe) {
                 report_pipe_source_reset(pipe, event.epoch);
                 break;
             case SOURCE_EVENT_STATE:
-                report_pipe_publish(pipe, &event.state, event.epoch);
+                report_pipe_publish_at(pipe, &event.state, event.epoch,
+                                       event.timestamp_us);
                 break;
             case SOURCE_EVENT_READY:
                 host_status = USB_HOST_KEYBOARD_READY;
@@ -317,7 +322,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
                                 const uint8_t *report, uint16_t length) {
     if (dev_addr != keyboard_dev_addr || instance != keyboard_instance) return;
 
-    observe_report_frame();
+    const uint32_t received_us = observe_report_frame();
 
     keyboard_state_t state;
     if (decode_boot_report(report, length, &state) &&
@@ -329,6 +334,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance,
             .kind = SOURCE_EVENT_STATE,
             .state = state,
             .epoch = source_epoch,
+            .timestamp_us = received_us,
         };
         queue_event(&event);
     }

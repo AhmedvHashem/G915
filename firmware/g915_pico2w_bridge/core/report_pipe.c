@@ -7,12 +7,14 @@ static void clear_items(report_pipe_t *pipe) {
     pipe->count = 0;
 }
 
-static void append_item(report_pipe_t *pipe, const keyboard_state_t *state) {
+static void append_item(report_pipe_t *pipe, const keyboard_state_t *state,
+                        uint32_t timestamp_us) {
     const size_t write_index =
         (pipe->read_index + pipe->count) % REPORT_PIPE_CAPACITY;
     pipe->items[write_index].state = *state;
     pipe->items[write_index].epoch = pipe->epoch;
     pipe->items[write_index].sequence = pipe->next_sequence++;
+    pipe->items[write_index].timestamp_us = timestamp_us;
     ++pipe->count;
 }
 
@@ -21,9 +23,9 @@ static void enqueue_resync(report_pipe_t *pipe) {
     keyboard_state_clear(&released);
 
     clear_items(pipe);
-    append_item(pipe, &released);
+    append_item(pipe, &released, 0);
     if (pipe->latest_valid && !keyboard_state_empty(&pipe->latest)) {
-        append_item(pipe, &pipe->latest);
+        append_item(pipe, &pipe->latest, 0);
     }
 }
 
@@ -43,6 +45,11 @@ void report_pipe_set_active(report_pipe_t *pipe, bool active) {
 
 void report_pipe_publish(report_pipe_t *pipe, const keyboard_state_t *state,
                          uint32_t epoch) {
+    report_pipe_publish_at(pipe, state, epoch, 0);
+}
+
+void report_pipe_publish_at(report_pipe_t *pipe, const keyboard_state_t *state,
+                            uint32_t epoch, uint32_t timestamp_us) {
     if (epoch < pipe->epoch) {
         ++pipe->stale_report_count;
         return;
@@ -73,7 +80,7 @@ void report_pipe_publish(report_pipe_t *pipe, const keyboard_state_t *state,
         enqueue_resync(pipe);
         return;
     }
-    append_item(pipe, state);
+    append_item(pipe, state, timestamp_us);
 }
 
 void report_pipe_source_reset(report_pipe_t *pipe, uint32_t epoch) {
@@ -107,10 +114,10 @@ void report_pipe_request_modifier_recovery(report_pipe_t *pipe,
     // clears a key-down state retained when the previous USB session vanished
     // during a reset or firmware update.
     clear_items(pipe);
-    append_item(pipe, &pressed);
-    append_item(pipe, &released);
+    append_item(pipe, &pressed, 0);
+    append_item(pipe, &released, 0);
     if (pipe->latest_valid && !keyboard_state_empty(&pipe->latest)) {
-        append_item(pipe, &pipe->latest);
+        append_item(pipe, &pipe->latest, 0);
     }
 }
 

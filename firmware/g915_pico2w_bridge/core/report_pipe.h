@@ -12,6 +12,11 @@ typedef struct {
     keyboard_state_t state;
     uint32_t epoch;
     uint32_t sequence;
+    // When the source produced this state, in microseconds on whatever clock
+    // the caller uses. Zero for items the pipe synthesises itself (release
+    // barriers, resynchronisation, modifier recovery), which have no source
+    // event to be timed against.
+    uint32_t timestamp_us;
 } report_pipe_item_t;
 
 typedef struct {
@@ -32,6 +37,10 @@ void report_pipe_init(report_pipe_t *pipe);
 void report_pipe_set_active(report_pipe_t *pipe, bool active);
 void report_pipe_publish(report_pipe_t *pipe, const keyboard_state_t *state,
                          uint32_t epoch);
+// As report_pipe_publish, but stamps the item with the time its source event
+// was observed so the delivery latency can be measured downstream.
+void report_pipe_publish_at(report_pipe_t *pipe, const keyboard_state_t *state,
+                            uint32_t epoch, uint32_t timestamp_us);
 void report_pipe_source_reset(report_pipe_t *pipe, uint32_t epoch);
 void report_pipe_request_resync(report_pipe_t *pipe);
 void report_pipe_request_modifier_recovery(report_pipe_t *pipe,

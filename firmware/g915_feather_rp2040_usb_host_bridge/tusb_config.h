@@ -10,7 +10,10 @@
 #if BRIDGE_USB_CDC_DIAGNOSTICS
 #define CFG_TUSB_DEBUG_PRINTF          bridge_debug_printf
 #define CFG_TUD_LOG_LEVEL              0
-#define CFG_TUH_LOG_LEVEL              2
+#ifndef BRIDGE_USB_HOST_LOG_LEVEL
+#define BRIDGE_USB_HOST_LOG_LEVEL      0
+#endif
+#define CFG_TUH_LOG_LEVEL              BRIDGE_USB_HOST_LOG_LEVEL
 #endif
 
 // Native RP2040 USB is the PS5-facing HID device. PIO USB is the receiver-
