@@ -6,7 +6,7 @@
             "type": "process",
             "isBuildCommand": true,
             "command": "${userHome}/.pico-sdk/ninja/v1.13.2/ninja",
-            "args": ["-C", "${workspaceFolder}/build"],
+            "args": ["-C", "${workspaceFolder}/firmware/g915_pico2w_bridge/build"],
             "group": "build",
             "presentation": {
                 "reveal": "always",
