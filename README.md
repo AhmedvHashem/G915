@@ -1,12 +1,12 @@
-# G915 Pico 2 W Bridge
+# G915 PS5 Bridges
 
-Firmware that turns a Raspberry Pi Pico 2 W into a Bluetooth LE HID-to-USB
-bridge for the Logitech G915 keyboard. The Pico connects to the keyboard over
-Bluetooth, normalizes its keyboard reports, and exposes one USB boot-keyboard
-interface to the host. Consumer/media and Logitech vendor reports are not
-forwarded over USB.
+Firmware that turns either a Raspberry Pi Pico 2 W or an Adafruit Feather
+RP2040 USB Host into a Logitech G915-to-USB keyboard bridge for PS5. The Pico
+2 W receives the keyboard over Bluetooth LE; the Feather receives it through
+the G915 LIGHTSPEED USB receiver. Both expose one USB boot-keyboard interface
+to the console.
 
-## Quick start
+## Pico 2 W quick start
 
 1. Build the release firmware (see below).
 2. Copy `firmware/g915_pico2w_bridge/build/g915_pico2w_bridge.uf2` to a Pico
@@ -51,7 +51,26 @@ See the [firmware README](firmware/g915_pico2w_bridge/README.md) for the
 architecture, USB lifecycle behavior, security model, and a direct CMake build
 command.
 
+## Feather RP2040 USB Host quick start
+
+Build the Feather firmware, flash its UF2, plug the paired G915 LIGHTSPEED
+receiver into USB-A, then connect USB-C to the PS5:
+
+```powershell
+cd firmware/g915_feather_rp2040_usb_host_bridge
+cmake --preset feather-release
+cmake --build --preset feather-release
+```
+
+The ready-to-flash file is
+`firmware/g915_feather_rp2040_usb_host_bridge/build/g915_feather_rp2040_usb_host_bridge.uf2`.
+The red LED blinks while waiting for the receiver and stays solid after its
+keyboard interface mounts. See the [Feather firmware README](firmware/g915_feather_rp2040_usb_host_bridge/README.md)
+for architecture, flashing, and wiring details.
+
 ## Repository layout
 
 - `firmware/g915_pico2w_bridge` — BLE HID-to-USB HID bridge firmware.
+- `firmware/g915_feather_rp2040_usb_host_bridge` — LIGHTSPEED receiver
+  USB-host-to-USB-HID bridge firmware for the Adafruit Feather board.
 - `firmware/g915_pico2w_blink` — basic Pico 2 W LED test firmware.

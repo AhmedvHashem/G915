@@ -1,0 +1,48 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "feather-release",
+      "displayName": "Adafruit Feather RP2040 USB Host Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "PICO_BOARD": "adafruit_feather_rp2040_usb_host",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "feather-debug",
+      "displayName": "Adafruit Feather RP2040 USB Host Debug",
+      "inherits": "feather-release",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "feather-diagnostic",
+      "displayName": "Adafruit Feather RP2040 USB Host Diagnostics",
+      "inherits": "feather-release",
+      "binaryDir": "${sourceDir}/build-diagnostic",
+      "cacheVariables": {
+        "BRIDGE_USB_CDC_DIAGNOSTICS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "feather-release",
+      "configurePreset": "feather-release"
+    },
+    {
+      "name": "feather-debug",
+      "configurePreset": "feather-debug"
+    },
+    {
+      "name": "feather-diagnostic",
+      "configurePreset": "feather-diagnostic"
+    }
+  ]
+}
